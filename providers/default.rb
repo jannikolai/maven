@@ -52,22 +52,24 @@ def get_mvn_artifact(action, new_resource)
     tmp_file = ::File.join(tmp_dir, artifact_file_name)
     shell_out!(create_command_string(tmp_file, new_resource))
     dest_file = ::File.join(new_resource.dest, artifact_file_name)
+    
+    if !new_resource.checksum || checksum(tmp_file) == new_resource.checksum
+      unless ::File.exists?(dest_file) && checksum(tmp_file) == checksum(dest_file)
+        directory new_resource.dest do
+          recursive true
+          mode '0755'
+        end.run_action(:create)
+        
+        FileUtils.cp(tmp_file, dest_file, :preserve => true)
 
-    unless (::File.exists?(dest_file) && (checksum(tmp_file) == (checksum(dest_file))))
-      directory new_resource.dest do
-        recursive true
-        mode 00755
-      end.run_action(:create)
+        file dest_file do
+          owner new_resource.owner
+          group new_resource.owner
+          mode new_resource.mode
+        end.run_action(:create)
 
-      FileUtils.cp(tmp_file, dest_file, :preserve => true)
-
-      file dest_file do
-        owner new_resource.owner
-        group new_resource.owner
-        mode new_resource.mode
-      end.run_action(:create)
-
-      new_resource.updated_by_last_action(true)
+        new_resource.updated_by_last_action(true)
+      end
     end
   end
 end
